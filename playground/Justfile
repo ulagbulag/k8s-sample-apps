@@ -1,0 +1,92 @@
+# Copyright (c) 2024 Ho Kim (ho.kim@ulagbulag.io). All rights reserved.
+# Use of this source code is governed by a Apache-2.0 license that can be
+# found in the LICENSE file.
+
+# Load environment variables
+set dotenv-load
+
+# Enforce to use bash
+set shell := ["bash", "-uc"]
+
+# Configure environment variables
+export CLUSTER_NAME := env_var_or_default('CLUSTER_NAME', 'cluster.local')
+export CONFS_DIR := env_var_or_default('CONFS_DIR', './confs')
+export DAYS_VALID := env_var_or_default('DAYS_VALID', '60')
+export KUBERNETES_CA_HOME := env_var_or_default('KUBERNETES_CA_HOME', '/etc/kubernetes/ssl')
+export PKI_DIR := env_var_or_default('PKI_DIR', './pki')
+export PROXY_URL := env_var_or_default('PROXY_URL', '')
+export TEAM_GROUP_NAME := env_var_or_default('TEAM_GROUP_NAME', 'mobilex.kr')
+export TEAM_NAME_PREFIX := env_var_or_default('TEAM_NAME_PREFIX', 'computer-system-team')
+export TEAM_NODE_LABEL := env_var_or_default('TEAM_NODE_LABEL', 'generic-playground')
+
+create COUNT: (_kubectl 'create' COUNT)
+
+apply COUNT: (_kubectl 'apply' COUNT)
+
+delete COUNT: (_kubectl 'delete' COUNT)
+
+delete-all: _kubectl_delete_all
+
+_kubectl CMD COUNT:
+	echo "${KUBERNETES_CA_HOME}/ca.key"
+	@if [ ! -f "${KUBERNETES_CA_HOME}/ca.key" ]; then true \
+		&& echo '* Kubernetes CA key file not found; Aborting...' >&2 \
+		&& exit 1 \
+	; fi
+
+	@mkdir -p "${CONFS_DIR}" "${PKI_DIR}"
+
+	@for num in $(seq 0 "{{ COUNT }}"); do true \
+		&& TEAM_ID="$(printf '%02d' $num)" \
+		&& TEAM_NAME="${TEAM_NAME_PREFIX}-${TEAM_ID}" \
+		&& echo "* [{{ CMD }}] team/${TEAM_NAME}" \
+		&& echo '{' \
+				'"metadata": {' \
+					'"prefix": "'"${TEAM_NAME_PREFIX}"'",' \
+					'"node_label": "'"${TEAM_NODE_LABEL}"'"' \
+				'},' \
+				'"team": {' \
+					'"name": "'"${TEAM_ID}"'"' \
+				'}' \
+			'}' \
+			| jinja2 './namespace.yaml.j2' --format=json \
+			| kubectl "{{ CMD }}" -f - \
+		&& if [ "x{{ CMD }}" = 'xdelete' ]; then continue; fi \
+		&& CRTFILE="${PKI_DIR}/${TEAM_NAME}.csr" \
+		&& CSRFILE="${PKI_DIR}/${TEAM_NAME}.csr" \
+		&& SECRET_KEY="${PKI_DIR}/${TEAM_NAME}.key" \
+		&& if [ ! -f "${CRTFILE}" ]; then true \
+			&& openssl genrsa -out "${SECRET_KEY}" 2048 \
+			&& openssl req -new -key "${SECRET_KEY}" -out "${CSRFILE}" \
+				-subj "/CN=${TEAM_NAME}/O=${TEAM_GROUP_NAME}" \
+			&& openssl x509 -req -in "${CSRFILE}" -out "${CRTFILE}" -days "${DAYS_VALID}" \
+				-CA "${KUBERNETES_CA_HOME}/ca.crt" \
+				-CAkey "${KUBERNETES_CA_HOME}/ca.key" \
+				-CAcreateserial \
+		; fi \
+		&& CONF_FILE="${CONFS_DIR}/${TEAM_NAME}.yaml" \
+		&& if [ ! -f "${CONF_FILE}" ]; then true \
+			&& kubectl config set-credentials "${TEAM_NAME}" \
+				--client-certificate="${CRTFILE}" \
+				--client-key="${SECRET_KEY}" \
+				--embed-certs=true \
+			&& kubectl config set-context "${TEAM_NAME}@${CLUSTER_NAME}" \
+				--cluster="${CLUSTER_NAME}" \
+				--user="${TEAM_NAME}" \
+				--namespace="${TEAM_NAME}" \
+			&& echo '---' >"${CONF_FILE}" \
+			&& kubectl config view --context "${TEAM_NAME}@${CLUSTER_NAME}" \
+				--flatten \
+				--minify \
+				>>"${CONF_FILE}" \
+			&& if [ "x${PROXY_URL}" != 'x' ]; then true \
+				&& sed -i \
+					"s/^\( \+\)server\: \+.*$/\0\n\1proxy-url: ${PROXY_URL//\//\\/}/" \
+					"${CONF_FILE}" \
+			; fi \
+		; fi \
+	; done
+
+_kubectl_delete_all:
+	@kubectl delete namespace \
+		--selector='dash.ulagbulag.io/external.user=generic-playground'
