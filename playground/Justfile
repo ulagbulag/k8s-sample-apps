@@ -28,7 +28,6 @@ delete COUNT: (_kubectl 'delete' COUNT)
 delete-all: _kubectl_delete_all
 
 _kubectl CMD COUNT:
-	echo "${KUBERNETES_CA_HOME}/ca.key"
 	@if [ ! -f "${KUBERNETES_CA_HOME}/ca.key" ]; then true \
 		&& echo '* Kubernetes CA key file not found; Aborting...' >&2 \
 		&& exit 1 \
