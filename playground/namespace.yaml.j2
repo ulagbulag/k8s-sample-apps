@@ -5,6 +5,7 @@ metadata:
   annotations:
     scheduler.alpha.kubernetes.io/node-selector: "dash.ulagbulag.io/shared.user={{ metadata.node_label }}"
   labels:
+    dash.ulagbulag.io/name: "{{ metadata.prefix }}-{{ team.name }}"
     dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
   name: "{{ metadata.prefix }}-{{ team.name }}"
 ---
@@ -13,32 +14,108 @@ kind: ServiceAccount
 metadata:
   name: "{{ metadata.prefix }}-{{ team.name }}"
   namespace: "{{ metadata.prefix }}-{{ team.name }}"
+  labels:
+    dash.ulagbulag.io/name: "{{ metadata.prefix }}-{{ team.name }}"
+    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: admin
   namespace: "{{ metadata.prefix }}-{{ team.name }}"
+  labels:
+    dash.ulagbulag.io/name: admin
+    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
 rules:
-  # TODO: limits user boundary
   - apiGroups:
       - ""
-      - '*'
+      - apps
+      - batch
     resources:
-      - '*'
+      - cronjobs
+      - deployments
+      - jobs
+      - persistentvolumeclaims
+      - pods
     verbs:
       - '*'
+  - apiGroups:
+      - ""
+      - apps
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - limitranges
+      - replicasets
+      - resourcequotas
+      - services
+    verbs:
+      - describe
+      - get
+      - list
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: "{{ metadata.prefix }}-{{ team.name }}"
   namespace: "{{ metadata.prefix }}-{{ team.name }}"
+  labels:
+    dash.ulagbulag.io/name: "{{ metadata.prefix }}-{{ team.name }}"
+    dash.ulagbulag.io/role: admin
+    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: admin
 subjects:
-- apiGroup: rbac.authorization.k8s.io
-  kind: User
-  name: "{{ metadata.prefix }}-{{ team.name }}"
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: "{{ metadata.prefix }}-{{ team.name }}"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default
+  namespace: "{{ metadata.prefix }}-{{ team.name }}"
+  labels:
+    dash.ulagbulag.io/name: default
+    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 200m
+        memory: 1Gi
+      defaultRequest:
+        cpu: 200m
+        memory: 1Gi
+      max:
+        cpu: 800m
+        memory: 4Gi
+        nvidia.com/gpu: "1"
+    - type: PersistentVolumeClaim
+      default:
+        storage: 10Gi
+      defaultRequest:
+        storage: 10Gi
+      max:
+        storage: 100Gi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default
+  namespace: "{{ metadata.prefix }}-{{ team.name }}"
+  labels:
+    dash.ulagbulag.io/name: default
+    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
+spec:
+  hard:
+    requests.cpu: 800m
+    requests.memory: 4Gi
+    requests.nvidia.com/gpu: "1"
+    requests.storage: 100Gi
+    limits.cpu: 800m
+    limits.memory: 4Gi
+    limits.nvidia.com/gpu: "1"
