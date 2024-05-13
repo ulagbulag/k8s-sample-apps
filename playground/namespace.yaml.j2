@@ -119,3 +119,41 @@ spec:
     limits.cpu: 800m
     limits.memory: 4Gi
     limits.nvidia.com/gpu: "1"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: "{{ metadata.prefix }}-{{ team.name }}"
+  annotations:
+    cert-manager.io/cluster-issuer: example.com # TODO(user): change to your domain
+    kubernetes.io/ingress.class: example.com # TODO(user): change to your domain
+    nginx.ingress.kubernetes.io/proxy-body-size: 200M
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  labels:
+    dash.ulagbulag.io/name: gateway
+    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
+spec:
+  tls:
+    - hosts:
+        - "{{ metadata.prefix }}-{{ team.name }}.dev.example.com" # TODO(user): change to your domain
+      secretName: "{{ metadata.prefix }}-{{ team.name }}.dev.example.com-certs" # TODO(user): change to your domain
+  rules:
+    - host: "{{ metadata.prefix }}-{{ team.name }}.dev.example.com" # TODO(user): change to your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http
+          - path: /api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  name: http
