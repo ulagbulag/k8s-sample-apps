@@ -32,11 +32,13 @@ rules:
       - apps
       - batch
     resources:
+      - configmaps
       - cronjobs
       - deployments
       - jobs
       - persistentvolumeclaims
       - pods
+      - secrets
     verbs:
       - '*'
   - apiGroups:
