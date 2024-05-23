@@ -39,6 +39,7 @@ rules:
       - persistentvolumeclaims
       - pods
       - secrets
+      - services
     verbs:
       - '*'
   - apiGroups:
@@ -50,7 +51,6 @@ rules:
       - limitranges
       - replicasets
       - resourcequotas
-      - services
     verbs:
       - describe
       - get
