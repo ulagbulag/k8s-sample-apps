@@ -75,61 +75,14 @@ subjects:
     kind: User
     name: "{{ metadata.prefix }}-{{ team.name }}"
 ---
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: default
-  namespace: "{{ metadata.prefix }}-{{ team.name }}"
-  labels:
-    dash.ulagbulag.io/name: default
-    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
-spec:
-  limits:
-    - type: Container
-      default:
-        cpu: 200m
-        memory: 1Gi
-      defaultRequest:
-        cpu: 200m
-        memory: 1Gi
-      max:
-        cpu: 800m
-        memory: 4Gi
-        nvidia.com/gpu: "1"
-    - type: PersistentVolumeClaim
-      default:
-        storage: 10Gi
-      defaultRequest:
-        storage: 10Gi
-      max:
-        storage: 100Gi
----
-apiVersion: v1
-kind: ResourceQuota
-metadata:
-  name: default
-  namespace: "{{ metadata.prefix }}-{{ team.name }}"
-  labels:
-    dash.ulagbulag.io/name: default
-    dash.ulagbulag.io/shared.user: "{{ metadata.node_label }}"
-spec:
-  hard:
-    requests.cpu: 800m
-    requests.memory: 4Gi
-    requests.nvidia.com/gpu: "1"
-    requests.storage: 100Gi
-    limits.cpu: 800m
-    limits.memory: 4Gi
-    limits.nvidia.com/gpu: "1"
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: gateway
   namespace: "{{ metadata.prefix }}-{{ team.name }}"
   annotations:
-    cert-manager.io/cluster-issuer: example.com # TODO(user): change to your domain
-    kubernetes.io/ingress.class: example.com # TODO(user): change to your domain
+    cert-manager.io/cluster-issuer: "{{ metadata.domainName }}" # TODO(user): change to your domain
+    kubernetes.io/ingress.class: "{{ metadata.domainName }}" # TODO(user): change to your domain
     nginx.ingress.kubernetes.io/proxy-body-size: 200M
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -139,10 +92,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - "{{ metadata.prefix }}-{{ team.name }}.dev.example.com" # TODO(user): change to your domain
-      secretName: "{{ metadata.prefix }}-{{ team.name }}.dev.example.com-certs" # TODO(user): change to your domain
+        - "{{ metadata.prefix }}-{{ team.name }}.dev.{{ metadata.domainName }}" # TODO(user): change to your domain
+      secretName: "{{ metadata.prefix }}-{{ team.name }}.dev.{{ metadata.domainName }}-certs" # TODO(user): change to your domain
   rules:
-    - host: "{{ metadata.prefix }}-{{ team.name }}.dev.example.com" # TODO(user): change to your domain
+    - host: "{{ metadata.prefix }}-{{ team.name }}.dev.{{ metadata.domainName }}" # TODO(user): change to your domain
       http:
         paths:
           - path: /

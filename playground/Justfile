@@ -12,6 +12,7 @@ set shell := ["bash", "-uc"]
 export CLUSTER_NAME := env_var_or_default('CLUSTER_NAME', 'cluster.local')
 export CONFS_DIR := env_var_or_default('CONFS_DIR', './confs')
 export DAYS_VALID := env_var_or_default('DAYS_VALID', '60')
+export DOMAIN_NAME := env_var_or_default('CLUSTER_NAME', 'example.com')
 export KUBERNETES_CA_HOME := env_var_or_default('KUBERNETES_CA_HOME', '/etc/kubernetes/ssl')
 export PKI_DIR := env_var_or_default('PKI_DIR', './pki')
 export PROXY_URL := env_var_or_default('PROXY_URL', '')
@@ -41,6 +42,7 @@ _kubectl CMD COUNT:
 		&& echo "* [{{ CMD }}] team/${TEAM_NAME}" \
 		&& echo '{' \
 				'"metadata": {' \
+					'"domainName": "'"${DOMAIN_NAME}"'"' \
 					'"prefix": "'"${TEAM_NAME_PREFIX}"'",' \
 					'"node_label": "'"${TEAM_NODE_LABEL}"'"' \
 				'},' \
